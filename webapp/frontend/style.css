@@ -1,0 +1,17 @@
+body {
+  font-family: "Be Vietnam Pro", "Inter", sans-serif;
+  background: #f8fafc;
+  color: #1f2937;
+}
+
+code {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.tab-active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}

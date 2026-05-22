@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ABSA Quần áo - PhoBERT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: "#2563eb",
+            "lbl-pos": "#10b981",
+            "lbl-neg": "#ef4444",
+            "lbl-neu": "#f59e0b",
+            "lbl-non": "#9ca3af",
+          },
+          fontFamily: {
+            sans: ["Inter", "Be Vietnam Pro", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="min-h-screen text-slate-900">
+  <header class="sticky top-0 z-10 border-b bg-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <div class="flex items-center gap-3">
+        <svg viewBox="0 0 32 32" class="h-8 w-8 text-brand">
+          <circle cx="16" cy="16" r="14" fill="currentColor" />
+          <text x="16" y="22" font-size="14" text-anchor="middle" fill="white" font-weight="700">A</text>
+        </svg>
+        <div>
+          <p class="font-semibold leading-tight">ABSA Quần áo</p>
+          <p class="text-xs leading-tight text-gray-500">Phân tích cảm xúc theo khía cạnh — PhoBERT</p>
+        </div>
+      </div>
+      <span id="status-badge" class="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">⏳ Connecting...</span>
+    </div>
+    <nav class="mx-auto flex max-w-6xl gap-1 px-6">
+      <button id="tab-demo" class="border-b-2 border-brand px-4 py-2 font-medium text-brand">1. Demo 1 review</button>
+      <button id="tab-batch" class="border-b-2 border-transparent px-4 py-2 text-gray-500">2. Batch CSV</button>
+      <button id="tab-info" class="border-b-2 border-transparent px-4 py-2 text-gray-500">3. Thông tin</button>
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-6 py-6">
+      <section id="panel-demo" class="block">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <label for="rating-input" class="block text-sm font-semibold text-slate-700">Rating (1-5 sao)</label>
+            <div id="star-display" class="mt-2 text-2xl text-amber-500">★★★★★</div>
+            <input id="rating-input" type="range" min="1" max="5" value="5" class="mt-2 w-full" />
+
+            <label for="content-input" class="mt-4 block text-sm font-semibold text-slate-700">Nội dung đánh giá</label>
+            <textarea
+              id="content-input"
+              rows="6"
+              class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-blue-100"
+              placeholder="Ví dụ: quần kaki chất vải rất tốt, mặc đứng form, đường may chắc chắn..."
+            ></textarea>
+
+            <button id="btn-predict" class="mt-4 rounded-lg bg-brand px-6 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+              Phân tích →
+            </button>
+
+            <div class="mt-6">
+              <p class="mb-2 text-sm text-slate-500">Ví dụ mẫu (bấm để điền):</p>
+              <ul id="example-list" class="space-y-2 text-sm"></ul>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow">
+            <h2 class="mb-4 font-semibold">Kết quả phân loại 5 khía cạnh</h2>
+            <div id="result-cards" class="space-y-3">
+              <p class="italic text-slate-400">Nhập review và bấm "Phân tích" để xem kết quả.</p>
+            </div>
+            <p id="inference-time" class="mt-4 text-xs text-slate-400"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-batch" class="hidden">
+        <div class="rounded-2xl bg-white p-6 shadow">
+          <h2 class="mb-4 text-xl font-semibold">Upload file CSV review</h2>
+          <p class="mb-3 text-sm text-slate-500">
+            Yêu cầu: file CSV phải có cột <code>rating</code> (1-5) và <code>content</code>.
+            Tối đa <strong>5000 dòng/lần</strong> (file lớn hơn sẽ bị cắt). Inference ~2 phút cho 1000 dòng.
+          </p>
+
+          <label for="file-input" class="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 p-10 text-center hover:border-brand">
+            <div class="mb-2 text-3xl">📁</div>
+            <span id="file-label" class="text-slate-600">Bấm để chọn file CSV (hoặc kéo thả vào đây)</span>
+          </label>
+          <input id="file-input" type="file" accept=".csv" class="hidden" />
+
+          <button id="btn-batch" disabled class="mt-4 rounded-lg bg-brand px-6 py-2 font-semibold text-white disabled:bg-slate-300">
+            Phân tích toàn bộ
+          </button>
+
+          <div id="batch-progress" class="mt-4 hidden">
+            <div class="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div id="batch-progress-bar" class="h-2 animate-pulse bg-brand" style="width: 30%"></div>
+            </div>
+            <p id="batch-progress-text" class="mt-1 text-sm text-slate-500">Đang phân tích...</p>
+          </div>
+        </div>
+
+        <div id="batch-charts" class="mt-6 hidden">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="rounded-2xl bg-white p-6 shadow">
+              <h3 class="mb-3 font-semibold">Tỉ lệ cảm xúc tổng hợp (cộng 5 khía cạnh)</h3>
+              <canvas id="chart-donut" height="220"></canvas>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow">
+              <h3 class="mb-3 font-semibold">Phân phối điểm Rating</h3>
+              <canvas id="chart-rating" height="220"></canvas>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow lg:col-span-2">
+              <h3 class="mb-3 font-semibold">So sánh 5 khía cạnh - phân phối nhãn</h3>
+              <canvas id="chart-stacked" height="160"></canvas>
+            </div>
+            <div class="rounded-2xl bg-white p-6 shadow lg:col-span-2">
+              <h3 class="mb-3 font-semibold">Heatmap: Tỉ lệ Negative theo Rating × Khía cạnh</h3>
+              <div id="chart-heatmap" class="overflow-x-auto"></div>
+            </div>
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-6 lg:col-span-2">
+              <h3 class="mb-3 font-semibold">📌 Insight tự động</h3>
+              <ul id="insight-list" class="space-y-2 text-sm"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div id="batch-table-wrap" class="mt-6 hidden rounded-2xl bg-white p-6 shadow">
+          <h2 class="mb-4 text-xl font-semibold">Bảng chi tiết</h2>
+          <div class="mb-3 flex flex-wrap gap-3">
+            <input id="filter-search" type="search" placeholder="🔍 Tìm trong content..." class="min-w-[200px] flex-1 rounded border px-3 py-1" />
+            <select id="filter-label" class="rounded border px-3 py-1">
+              <option value="all">Tất cả review</option>
+              <option value="any-neg">Có ≥ 1 Negative</option>
+              <option value="all-neg">Chỉ Negative ở mọi aspect được nhắc</option>
+            </select>
+            <select id="filter-aspect" class="rounded border px-3 py-1">
+              <option value="all">Mọi khía cạnh</option>
+              <option value="Chất Liệu">Chất Liệu</option>
+              <option value="Kích Cỡ/Form">Kích Cỡ/Form</option>
+              <option value="Thiết Kế">Thiết Kế</option>
+              <option value="Gia Công">Gia Công</option>
+              <option value="Giá Trị Thực Tế">Giá Trị Thực Tế</option>
+            </select>
+            <button id="btn-download" class="rounded bg-emerald-600 px-4 py-1 text-white">
+              ⬇ Tải kết quả CSV
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table id="batch-table" class="min-w-full text-sm">
+              <thead class="bg-slate-50 text-left">
+                <tr>
+                  <th class="p-2">★</th>
+                  <th class="p-2">Content</th>
+                  <th class="p-2">Chất Liệu</th>
+                  <th class="p-2">Kích Cỡ</th>
+                  <th class="p-2">Thiết Kế</th>
+                  <th class="p-2">Gia Công</th>
+                  <th class="p-2">Giá Trị</th>
+                </tr>
+              </thead>
+              <tbody id="batch-tbody"></tbody>
+            </table>
+          </div>
+          <p id="batch-table-summary" class="mt-2 text-xs text-slate-500"></p>
+        </div>
+      </section>
+
+      <section id="panel-info" class="hidden">
+        <article class="space-y-6 rounded-2xl bg-white p-8 leading-relaxed shadow">
+          <h2 class="text-2xl font-bold">Mục tiêu bài toán</h2>
+          <p>
+            Trang web này hiện thực hóa <strong>mô hình phân tích cảm xúc theo khía cạnh
+            (Aspect-Based Sentiment Analysis — ABSA)</strong> cho các đánh giá sản phẩm
+            <strong>quần áo</strong> bằng Tiếng Việt. Đầu vào là <code>rating</code> (1-5 sao)
+            và <code>content</code> (nội dung bình luận). Mô hình tự động phân loại cảm xúc cho
+            từng khía cạnh, giúp doanh nghiệp khai thác phản hồi khách hàng chi tiết hơn:
+            xác định điểm mạnh/yếu sản phẩm, cải thiện chất lượng và thiết kế.
+          </p>
+
+          <h3 class="pt-2 text-lg font-semibold">5 khía cạnh được phân tích</h3>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="rounded-lg border p-4">
+              <p class="font-medium">1. Chất Liệu</p>
+              <p class="text-sm text-gray-600">Vải, độ mềm/dày, độ mát, co giãn, cảm giác khi mặc.</p>
+            </div>
+            <div class="rounded-lg border p-4">
+              <p class="font-medium">2. Kích Cỡ / Form</p>
+              <p class="text-sm text-gray-600">Size, độ vừa vặn, form rộng/chật/ngắn/dài.</p>
+            </div>
+            <div class="rounded-lg border p-4">
+              <p class="font-medium">3. Thiết Kế</p>
+              <p class="text-sm text-gray-600">Màu sắc, kiểu dáng, họa tiết, thẩm mỹ, thời trang.</p>
+            </div>
+            <div class="rounded-lg border p-4">
+              <p class="font-medium">4. Gia Công</p>
+              <p class="text-sm text-gray-600">Đường may, chỉ thừa, khóa kéo, nút áo, phụ kiện.</p>
+            </div>
+            <div class="rounded-lg border p-4 sm:col-span-2">
+              <p class="font-medium">5. Giá Trị Thực Tế</p>
+              <p class="text-sm text-gray-600">Mức độ đáng tiền so với chất lượng, giá so với kỳ vọng.</p>
+            </div>
+          </div>
+
+          <h3 class="pt-2 text-lg font-semibold">4 nhãn cảm xúc</h3>
+          <table class="w-full text-sm">
+            <tbody>
+              <tr><td class="w-32 py-2"><span class="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">🟢 Positive</span></td><td class="text-gray-700">Khách hàng đánh giá tích cực về khía cạnh.</td></tr>
+              <tr><td class="py-2"><span class="rounded bg-red-50 px-2 py-0.5 text-red-700">🔴 Negative</span></td><td class="text-gray-700">Khách hàng đánh giá tiêu cực.</td></tr>
+              <tr><td class="py-2"><span class="rounded bg-amber-50 px-2 py-0.5 text-amber-700">🟡 Neutral</span></td><td class="text-gray-700">Đánh giá trung tính / ý kiến hỗn hợp.</td></tr>
+              <tr><td class="py-2"><span class="rounded bg-gray-100 px-2 py-0.5 text-gray-600">⚪ None</span></td><td class="text-gray-700">Review không đề cập đến khía cạnh này.</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="pt-2 text-lg font-semibold">Kiến trúc mô hình</h3>
+          <ul class="list-disc space-y-1 pl-6 text-sm">
+            <li><strong>Backbone:</strong> <code>vinai/phobert-base-v2</code> (hidden_size = 768, BPE tokenizer).</li>
+            <li><strong>Multi-output heads:</strong> 5 lớp <code>Linear(768 → 4)</code> độc lập, mỗi head dự đoán 1 khía cạnh.</li>
+            <li><strong>Input:</strong> <code>"Đánh giá {rating} sao. {content}"</code>, tokenize max_len = 256.</li>
+            <li><strong>Loss:</strong> CrossEntropy có class weights (mỗi khía cạnh riêng) để cân bằng nhãn lệch.</li>
+            <li><strong>Optimizer:</strong> AdamW, lr = 2e-5, 10 epochs.</li>
+            <li><strong>Triển khai:</strong> Export ra <code>multioutput_phobert.onnx</code> (opset 17), chạy bằng <code>onnxruntime</code> CPU phía backend FastAPI.</li>
+          </ul>
+
+          <h3 class="pt-2 text-lg font-semibold">Tài nguyên</h3>
+          <ul class="list-disc space-y-1 pl-6 text-sm">
+            <li>Notebook huấn luyện: <code>BTL_DataMining.ipynb</code></li>
+            <li>Dataset huấn luyện: <code>Dataset_quan_relabeled.csv</code> (đã gán nhãn 5 khía cạnh)</li>
+            <li>Dataset demo (chưa nhãn): <code>Dataset_duy.csv</code></li>
+            <li>Blueprint chi tiết: <code>BLUEPRINT.md</code></li>
+          </ul>
+        </article>
+      </section>
+  </main>
+
+  <footer class="mx-auto max-w-6xl px-6 py-6 text-center text-xs text-gray-400">
+    BTL Khai phá Dữ liệu — 2026 · Model: PhoBERT-base-v2 multi-output · ONNX Runtime CPU
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="app.js?v=maxrows5000"></script>
+</body>
+</html>

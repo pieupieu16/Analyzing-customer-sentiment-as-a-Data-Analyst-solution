@@ -1,0 +1,43 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+webapp/.venv/
+
+# Python cache/build output
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# Jupyter/editor/system files
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large duplicate archive. Model files under onnx_export/ are tracked with Git LFS.
+onnx_export.zip
+*.onnx
+*.pth
+*.pt
+*.ckpt
+!onnx_export/
+!onnx_export/**
+
+# Raw datasets contain customer names or other personal data.
+Dataset_duy.csv
+Dataset_quan_relabeled.csv
+
+# Generated/debug files
+*.log
+*.tmp
+*_removed.csv

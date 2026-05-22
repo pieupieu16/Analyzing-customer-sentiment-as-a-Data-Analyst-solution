@@ -1,0 +1,2 @@
+onnx_export/*.onnx filter=lfs diff=lfs merge=lfs -text
+onnx_export/*.pth filter=lfs diff=lfs merge=lfs -text
